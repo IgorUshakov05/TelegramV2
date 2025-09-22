@@ -4,6 +4,7 @@ import { MicrophoneIcon } from "@heroicons/react/24/solid";
 import MiniSpinerLoader from "../Loader/miniloader";
 import { useEffect } from "react";
 import "./UserInfo.css"; // стили для keyframes
+import Underline from "./UnderLine";
 
 interface MicrophoneStatusProps {
   isOn: boolean;
@@ -39,6 +40,7 @@ const Member = ({ memberId, microphone, isSelf }: MemberProps) => {
 const UserInfo = () => {
   useEffect(() => {
     socketState.connect(process.env.REACT_APP_SERVER_URL || "");
+    socketState.start();
   }, []);
 
   const otherMembers = socketState.members.filter(
@@ -49,6 +51,9 @@ const UserInfo = () => {
 
   return (
     <div className="userInfo">
+      <audio ref={(el) => socketState.setLocalAudio(el)} />
+      <audio ref={(el) => socketState.setRemoteAudio(el)} />
+
       <div className={`user_icon ${hasMicOff ? "bubble-scale" : ""}`}>
         {otherMembers.length === 0 ? (
           <MiniSpinerLoader />
@@ -63,7 +68,7 @@ const UserInfo = () => {
           ))
         )}
       </div>
-      <span className="textr">Ваш собеседник</span>
+      <Underline otherMembers={otherMembers} />
     </div>
   );
 };

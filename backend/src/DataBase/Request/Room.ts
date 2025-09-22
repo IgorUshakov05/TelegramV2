@@ -15,15 +15,40 @@ export async function SetIdRoomOrGet({
     }
 
     if (findRoom.room) {
-      return { success: true, room: findRoom.room };
+      return {
+        success: true,
+        room: findRoom,
+      };
     }
 
     findRoom.room = room;
     await findRoom.save();
 
-    return { success: true, room: findRoom.room };
+    return {
+      success: true,
+      room: findRoom,
+    };
   } catch (error) {
     console.log(error);
     return { success: false, message: "Ошибка сервера" };
+  }
+}
+
+export async function StartCall({ ID }: { ID: String }) {
+  try {
+    let room = await RoomModel.findById(ID);
+    if (!room) {
+      return { success: false, message: "Комната не найдена" };
+    }
+    if (room.startCall) {
+      return { success: true, message: "Время уже есть" };
+    }
+    room.startCall = new Date();
+    await room.save();
+
+    return { success: true, startCall: room.startCall };
+  } catch (error) {
+    console.error("Ошибка при старте звонка:", error);
+    return { success: false, error: error };
   }
 }

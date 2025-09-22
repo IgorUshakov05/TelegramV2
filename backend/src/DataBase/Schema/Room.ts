@@ -5,6 +5,7 @@ const RoomSchema = new Schema<Room>({
   creator: { type: Schema.Types.ObjectId, ref: "User", required: true },
   createdAt: { type: Date, default: Date.now() },
   room: { type: String, default: null },
+  startCall: { type: Date, default: null },
   emoji: { type: String, default: null },
 });
 

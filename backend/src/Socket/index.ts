@@ -1,4 +1,5 @@
 import { Server, Socket } from "socket.io";
+import { SetIdRoomOrGet, StartCall } from "../DataBase/Request/Room";
 function RandomEmoji() {
   const emojis = [
     "😀",
@@ -323,12 +324,10 @@ function RandomEmoji() {
     "🎉",
   ];
 
-  return [
-    emojis[Math.floor(Math.random() * emojis.length)],
-    emojis[Math.floor(Math.random() * emojis.length)],
-    emojis[Math.floor(Math.random() * emojis.length)],
-    emojis[Math.floor(Math.random() * emojis.length)],
-  ];
+  return Array.from(
+    { length: 4 },
+    () => emojis[Math.floor(Math.random() * emojis.length)]
+  );
 }
 
 type RoomMember = {
@@ -336,33 +335,44 @@ type RoomMember = {
   microphone: boolean;
 };
 
-const rooms = new Map<string, { members: Set<RoomMember>; emoji: string[] }>();
+const rooms = new Map<
+  string,
+  { members: Map<string, RoomMember>; emoji: string[] }
+>();
 
 const sockethandle = (io: Server, socket: Socket) => {
-  console.log("User connected:", socket.id);
-  console.log("Auth data:", socket.handshake.auth);
+  console.log("✅ User connected:", socket.id);
 
   socket.on(
     "join",
-    ({ roomId, microphone }: { roomId: string; microphone: boolean }) => {
-      // Если комнаты нет — создаём с эмодзи
+    async ({ roomId, microphone }: { roomId: string; microphone: boolean }) => {
+      const getInBase = await SetIdRoomOrGet({ ID: roomId, room: roomId });
+      if (!getInBase.success) {
+        return io.in(roomId).emit("error", { roomId });
+      }
+
       if (!rooms.has(roomId)) {
-        rooms.set(roomId, { members: new Set(), emoji: RandomEmoji() });
+        rooms.set(roomId, { members: new Map(), emoji: RandomEmoji() });
       }
 
       const room = rooms.get(roomId)!;
-      room.members.add({ userId: socket.id, microphone });
+      room.members.set(socket.id, { userId: socket.id, microphone });
 
       socket.join(roomId);
 
-      console.log(`✅ ${socket.id} присоединился к комнате ${roomId}`);
-      console.log("Текущие участники:", [...room.members]);
+      console.log(`👤 ${socket.id} присоединился к комнате ${roomId}`);
 
-      // Отправляем ВСЕМ актуальные данные комнаты
+      if (room.members.size === 2) {
+        console.log(`📞 Старт звонка в комнате ${roomId}`);
+        await StartCall({ ID: roomId });
+        io.in(roomId).emit("callStarted", { roomId, start: Date.now() });
+      }
+
       io.in(roomId).emit("roomInfo", {
         roomId,
-        members: [...room.members],
-        emoji: room.emoji, // эмодзи комнаты
+        startCall: getInBase.room?.startCall || null,
+        members: Array.from(room.members.values()),
+        emoji: room.emoji,
       });
 
       socket.to(roomId).emit("userJoined", {
@@ -372,6 +382,23 @@ const sockethandle = (io: Server, socket: Socket) => {
     }
   );
 
+  // 📡 WebRTC сигналинг
+  socket.on("offer", ({ offer, roomId }) => {
+    console.log(`📨 Offer от ${socket.id} в комнату ${roomId}`);
+    socket.to(roomId).emit("offer", { offer, from: socket.id });
+  });
+
+  socket.on("answer", ({ answer, to }) => {
+    console.log(`📨 Answer от ${socket.id} для ${to}`);
+    io.to(to).emit("answer", { answer, from: socket.id });
+  });
+
+  socket.on("candidate", ({ candidate, roomId }) => {
+    console.log(`📨 Candidate от ${socket.id} в комнату ${roomId}`);
+    socket.to(roomId).emit("candidate", { candidate, from: socket.id });
+  });
+
+  // 🎙 изменение микрофона
   socket.on(
     "volume",
     ({
@@ -386,28 +413,32 @@ const sockethandle = (io: Server, socket: Socket) => {
       const room = rooms.get(roomId);
       if (!room) return;
 
-      const member = [...room.members].find((m) => m.userId === userId);
-      if (member) member.microphone = microphone;
+      const member = room.members.get(userId);
+      if (member) {
+        member.microphone = microphone;
+        room.members.set(userId, member);
+      }
 
       io.in(roomId).emit("volume", {
         roomId,
-        members: [...room.members],
+        members: Array.from(room.members.values()),
       });
     }
   );
 
+  // 🚪 пользователь вышел
   socket.on("disconnect", () => {
     rooms.forEach((room, roomId) => {
-      const member = [...room.members].find((m) => m.userId === socket.id);
-      if (member) {
-        room.members.delete(member);
+      if (room.members.has(socket.id)) {
+        room.members.delete(socket.id);
         console.log(`❌ ${socket.id} вышел из комнаты ${roomId}`);
 
         io.in(roomId).emit("roomInfo", {
           roomId,
-          members: [...room.members],
+          members: Array.from(room.members.values()),
           emoji: room.emoji,
         });
+
         socket.to(roomId).emit("userLeft", {
           userId: socket.id,
           roomId,
@@ -416,7 +447,7 @@ const sockethandle = (io: Server, socket: Socket) => {
 
       if (room.members.size === 0) {
         rooms.delete(roomId);
-        console.log(`Комната ${roomId} пуста, удаляем её`);
+        console.log(`🗑 Комната ${roomId} удалена`);
       }
     });
   });
