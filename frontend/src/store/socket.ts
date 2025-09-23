@@ -21,8 +21,67 @@ class SocketStore {
   remoteAudio: HTMLAudioElement | null = null;
   peerConnection: RTCPeerConnection | null = null;
 
+  connectionStats: {
+    rtt: number; // задержка
+    packetLoss: number; // % потерь
+    bitrate: number; // kbps
+  } = { rtt: 0, packetLoss: 0, bitrate: 0 };
+
   constructor() {
     makeAutoObservable(this, { socket: false });
+    this.startStatsMonitor();
+  }
+  startStatsMonitor() {
+    setInterval(async () => {
+      if (!this.peerConnection) return;
+
+      const stats = await this.peerConnection.getStats();
+      let rttSum = 0;
+      let rttCount = 0;
+      let packetsLost = 0;
+      let packetsSent = 0;
+      let bitrate = 0;
+
+      stats.forEach((report) => {
+        if (report.type === "outbound-rtp" && report.kind === "audio") {
+          packetsLost += report.packetsLost || 0;
+          packetsSent += report.packetsSent || 0;
+          bitrate += ((report.bytesSent || 0) * 8) / 1000; // kbps
+        }
+        if (report.type === "remote-inbound-rtp" && report.roundTripTime) {
+          rttSum += report.roundTripTime;
+          rttCount++;
+        }
+      });
+
+      this.connectionStats = {
+        rtt: rttCount ? rttSum / rttCount : 0,
+        packetLoss: packetsSent ? (packetsLost / packetsSent) * 100 : 0,
+        bitrate,
+      };
+    }, 2000);
+  }
+
+  getConnectionQuality(): "slow" | "normal" | "good" {
+    const { rtt, packetLoss, bitrate } = this.connectionStats;
+
+    if (rtt > 300 || packetLoss > 10 || bitrate < 20) return "slow";
+    if (rtt > 150 || packetLoss > 3 || bitrate < 50) return "normal";
+    return "good";
+  }
+
+  setClose() {
+    if (this.socket) {
+      this.isClose = true;
+      this.socket.emit("call_end_client", {
+        roomId: this.URL_ID,
+      });
+      this.disconnect();
+
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 3000);
+    }
   }
 
   setID(id: string | null) {
@@ -37,10 +96,9 @@ class SocketStore {
     this.remoteAudio = el;
   }
 
-  connect(url: string) {
+  connect() {
     if (this.socket && this.socket.connected) return;
-
-    this.socket = io(url, {
+    this.socket = io(process.env.REACT_APP_SERVER_URL, {
       auth: { userId: this.URL_ID, microphone: this.volume.microphone },
     });
 
@@ -54,8 +112,9 @@ class SocketStore {
       });
     });
 
-    this.socket.on("userJoined", ({ userId }) => {
+    this.socket.on("userJoined", ({ userId, startCall }) => {
       console.log("Новый участник:", userId);
+      this.startCall = startCall;
     });
 
     this.socket.on("userLeft", ({ userId }: { userId: string }) => {
@@ -68,20 +127,31 @@ class SocketStore {
         this.members = [...members];
       }
     );
-
+    this.socket.on("call_end_server", (data: { isClose: boolean }) => {
+      if (data.isClose) {
+        this.isClose = true;
+        this.disconnect();
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 3000);
+      }
+    });
     this.socket.on(
       "roomInfo",
       ({
-        roomId,
         members,
         startCall,
         emoji,
       }: {
-        roomId: string;
         emoji: string[];
         startCall: Date;
         members: RoomMember[];
       }) => {
+        console.log({
+          members,
+          startCall,
+          emoji,
+        });
         this.members = members;
         this.emoji = emoji;
         this.startCall = startCall;
@@ -120,6 +190,7 @@ class SocketStore {
     });
 
     this.socket.on("error", () => {
+      console.log("Error");
       this.disconnect();
       window.location.href = "/call/404";
     });
@@ -132,7 +203,8 @@ class SocketStore {
 
   handleChangeVolume = ({ type }: { type: "speaker" | "microphone" }) => {
     this.volume = { ...this.volume, [type]: !this.volume[type] };
-
+    const audio = new Audio("/click.ogg");
+    audio.play().catch(console.error);
     if (type === "microphone") {
       const stream = this.localAudio?.srcObject as MediaStream | null;
       if (stream) {
@@ -158,7 +230,9 @@ class SocketStore {
   };
 
   async createPeerConnection() {
-    this.peerConnection = new RTCPeerConnection();
+    this.peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
 
     this.peerConnection.onicecandidate = (event: any) => {
       if (event.candidate) {

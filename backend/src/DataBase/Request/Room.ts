@@ -8,7 +8,10 @@ export async function SetIdRoomOrGet({
   room: string;
 }) {
   try {
+    console.log(ID);
     const findRoom = await RoomModel.findById(ID);
+
+    console.log(findRoom);
 
     if (!findRoom) {
       return { success: false, message: "Комната не существует" };
@@ -50,5 +53,22 @@ export async function StartCall({ ID }: { ID: String }) {
   } catch (error) {
     console.error("Ошибка при старте звонка:", error);
     return { success: false, error: error };
+  }
+}
+
+export async function RemoveRoom({ roomId }: { roomId: string }) {
+  try {
+    const removeRoom = await RoomModel.findOneAndDelete({ _id: roomId });
+
+    if (!removeRoom) {
+      console.log(`Комната с id=${roomId} не найдена`);
+      return null;
+    }
+
+    console.log("Комната удалена:", removeRoom);
+    return removeRoom;
+  } catch (error) {
+    console.error("Ошибка при удалении комнаты:", error);
+    throw error;
   }
 }

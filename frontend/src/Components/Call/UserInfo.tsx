@@ -39,7 +39,8 @@ const Member = ({ memberId, microphone, isSelf }: MemberProps) => {
 
 const UserInfo = () => {
   useEffect(() => {
-    socketState.connect(process.env.REACT_APP_SERVER_URL || "");
+    socketState.connect();
+    // alert(process.env.REACT_APP_SERVER_URL)
     socketState.start();
   }, []);
 
@@ -55,7 +56,7 @@ const UserInfo = () => {
       <audio ref={(el) => socketState.setRemoteAudio(el)} />
 
       <div className={`user_icon ${hasMicOff ? "bubble-scale" : ""}`}>
-        {otherMembers.length === 0 ? (
+        {otherMembers.length === 0 && !socketState.isClose ? (
           <MiniSpinerLoader />
         ) : (
           otherMembers.map((member) => (

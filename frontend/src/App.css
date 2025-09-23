@@ -27,6 +27,11 @@
 .emoji {
   font-size: 25px;
 }
+.form-control.text-start {
+  text-wrap: nowrap;
+  white-space: nowrap;
+  overflow-x: hidden;
+}
 .loader-container {
   display: flex;
   justify-content: center;
@@ -69,6 +74,10 @@
   padding: 12px;
   border-radius: 50%;
   background: #ffffff23;
+}
+
+.buttonChange:disabled {
+  opacity: 0.5;
 }
 
 .text-white.small {

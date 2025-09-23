@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { SetIdRoomOrGet, StartCall } from "../DataBase/Request/Room";
+import { SetIdRoomOrGet } from "../DataBase/Request/Room";
 function RandomEmoji() {
   const emojis = [
     "😀",
@@ -337,7 +337,7 @@ type RoomMember = {
 
 const rooms = new Map<
   string,
-  { members: Map<string, RoomMember>; emoji: string[] }
+  { members: Map<string, RoomMember>; emoji: string[]; startCall: Date | null }
 >();
 
 const sockethandle = (io: Server, socket: Socket) => {
@@ -347,40 +347,52 @@ const sockethandle = (io: Server, socket: Socket) => {
     "join",
     async ({ roomId, microphone }: { roomId: string; microphone: boolean }) => {
       const getInBase = await SetIdRoomOrGet({ ID: roomId, room: roomId });
-      if (!getInBase.success) {
-        return io.in(roomId).emit("error", { roomId });
-      }
 
       if (!rooms.has(roomId)) {
-        rooms.set(roomId, { members: new Map(), emoji: RandomEmoji() });
+        rooms.set(roomId, {
+          members: new Map(),
+          emoji: RandomEmoji(),
+          startCall: null,
+        });
       }
 
       const room = rooms.get(roomId)!;
       room.members.set(socket.id, { userId: socket.id, microphone });
-
       socket.join(roomId);
 
-      console.log(`👤 ${socket.id} присоединился к комнате ${roomId}`);
-
-      if (room.members.size === 2) {
-        console.log(`📞 Старт звонка в комнате ${roomId}`);
-        await StartCall({ ID: roomId });
-        io.in(roomId).emit("callStarted", { roomId, start: Date.now() });
+      // Устанавливаем startCall только если он ещё не был установлен
+      if (!room.startCall && room.members.size === 2) {
+        room.startCall = new Date();
       }
+
+      socket.join(roomId);
+      console.log(getInBase, " из бд");
+      if (!getInBase.success) {
+        return io.in(roomId).emit("error", { roomId });
+      }
+      console.log(`👤 ${socket.id} присоединился к комнате ${roomId}`);
 
       io.in(roomId).emit("roomInfo", {
         roomId,
-        startCall: getInBase.room?.startCall || null,
+        startCall: room.startCall,
         members: Array.from(room.members.values()),
         emoji: room.emoji,
       });
 
       socket.to(roomId).emit("userJoined", {
         userId: socket.id,
+        startCall: room.startCall,
         roomId,
       });
     }
   );
+
+  socket.on("call_end_client", ({ roomId }) => {
+    socket.to(roomId).emit("call_end_server", {
+      isClose: true,
+    });
+    rooms.delete(roomId);
+  });
 
   // 📡 WebRTC сигналинг
   socket.on("offer", ({ offer, roomId }) => {
@@ -398,7 +410,6 @@ const sockethandle = (io: Server, socket: Socket) => {
     socket.to(roomId).emit("candidate", { candidate, from: socket.id });
   });
 
-  // 🎙 изменение микрофона
   socket.on(
     "volume",
     ({
@@ -426,7 +437,6 @@ const sockethandle = (io: Server, socket: Socket) => {
     }
   );
 
-  // 🚪 пользователь вышел
   socket.on("disconnect", () => {
     rooms.forEach((room, roomId) => {
       if (room.members.has(socket.id)) {

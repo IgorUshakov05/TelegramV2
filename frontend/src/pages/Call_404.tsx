@@ -19,20 +19,13 @@ export default function CallPageNotFound() {
         ещё раз или создайте новый.
       </p>
 
-      <div className="d-flex gap-3">
-        <button
-          className="btn btn-outline-light px-4 py-2 rounded-pill"
-          onClick={() => navigate(-1)}
-        >
-          ← Назад
-        </button>
-        <button
-          className="btn btn-danger px-4 py-2 rounded-pill"
-          onClick={() => navigate("/")}
-        >
-          На главную
-        </button>
-      </div>
+      <button
+        className="btn btn-danger px-4 py-2 rounded-pill w-100"
+        onClick={() => navigate("/")}
+        style={{ maxWidth: 400 }}
+      >
+        На главную
+      </button>
     </div>
   );
 }
