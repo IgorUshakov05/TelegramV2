@@ -13,7 +13,7 @@ function Index() {
       if (!data.success) {
         return alert(data.message);
       }
-      modalState.setOpen("Создать звонок", true, "share");
+      modalState.setOpen("Создать звонок", true, "share_and_join");
       console.log("Комната создана:", data);
       linkStore.setLink(data.room || "");
     },

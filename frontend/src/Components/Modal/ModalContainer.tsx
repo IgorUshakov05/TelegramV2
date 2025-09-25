@@ -1,10 +1,22 @@
 import { observer } from "mobx-react-lite";
 import { modalState } from "../../store/modalStore";
-import { ReactElement } from "react";
+import { ReactElement, useEffect } from "react";
 import CreateCallModal from "./CreateCall.modal";
 import { XMarkIcon } from "@heroicons/react/24/solid";
+import Share from "./Share";
 
 function Modal(): ReactElement {
+  useEffect(() => {
+    function PressEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        modalState.setOpen(null, false, null);
+      }
+    }
+    window.addEventListener("keydown", PressEscape);
+    return () => {
+      window.removeEventListener("keydown", PressEscape);
+    };
+  }, []);
   return (
     <div
       className="modal fade show d-block"
@@ -21,7 +33,8 @@ function Modal(): ReactElement {
               <XMarkIcon height={20} width={20} />
             </button>
           </div>
-          {modalState.content === "share" && <CreateCallModal />}
+          {modalState.content === "share_and_join" && <CreateCallModal />}
+          {modalState.content === "share" && <Share />}
         </div>
       </div>
     </div>

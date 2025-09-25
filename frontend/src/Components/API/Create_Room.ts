@@ -9,6 +9,6 @@ export async function CreateRoom() {
     const { room } = response.data as NewRoom;
     return { room, message: "Комната создана", success: true };
   } catch (error) {
-    return { message: "Провал", success: false };
+    return { message: "Потеряно соединение с сервером", success: false };
   }
 }
