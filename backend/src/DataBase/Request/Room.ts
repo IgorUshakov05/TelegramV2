@@ -65,7 +65,8 @@ export async function RemoveRoom({ roomId }: { roomId: string }) {
       return null;
     }
 
-    console.log("Комната удалена:", removeRoom);
+    console.log(`🗑 Комната ${roomId} удалена`);
+
     return removeRoom;
   } catch (error) {
     console.error("Ошибка при удалении комнаты:", error);

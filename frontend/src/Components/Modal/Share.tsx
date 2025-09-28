@@ -5,19 +5,23 @@ import { useState } from "react";
 function AddUserInCall() {
   const [copied, setCopied] = useState(false);
 
-  const onShare = () => {
+  const onShare = async () => {
     const shareData = {
       title: "HuntMeet",
       text: "Присоединяйся к моему звонку в HuntMeet!",
       url: window.location.href,
     };
 
-    if (navigator.share) {
-      navigator.share(shareData);
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (err) {
+      console.error("Ошибка при шаринге:", err);
     }
   };
 

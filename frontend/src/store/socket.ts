@@ -231,7 +231,19 @@ class SocketStore {
 
   async createPeerConnection() {
     this.peerConnection = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      iceServers: [
+        { urls: "stun:144.31.194.177:3478" },
+        {
+          urls: "turn:144.31.194.177:3478?transport=udp",
+          username: "webrtc",
+          credential: "webrtcpass",
+        },
+        {
+          urls: "turn:144.31.194.177:3478?transport=tcp",
+          username: "webrtc",
+          credential: "webrtcpass",
+        },
+      ],
     });
 
     this.peerConnection.onicecandidate = (event: any) => {

@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { SetIdRoomOrGet } from "../DataBase/Request/Room";
+import { SetIdRoomOrGet, RemoveRoom } from "../DataBase/Request/Room";
 function RandomEmoji() {
   const emojis = [
     "😀",
@@ -391,6 +391,7 @@ const sockethandle = (io: Server, socket: Socket) => {
     socket.to(roomId).emit("call_end_server", {
       isClose: true,
     });
+    RemoveRoom({ roomId });
     rooms.delete(roomId);
   });
 
@@ -457,7 +458,8 @@ const sockethandle = (io: Server, socket: Socket) => {
 
       if (room.members.size === 0) {
         rooms.delete(roomId);
-        console.log(`🗑 Комната ${roomId} удалена`);
+        RemoveRoom({ roomId });
+
       }
     });
   });

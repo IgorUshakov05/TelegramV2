@@ -17,7 +17,7 @@ function Emoji() {
       <div className="cal"></div>
 
       <div
-        className="emoji cal m-auto"
+        className="emoji cal m-auto noto-color-emoji-regular"
         style={{ opacity: socketState.isClose ? "0.5" : "1" }}
       >
         {socketState.emoji.map((item, index) => (

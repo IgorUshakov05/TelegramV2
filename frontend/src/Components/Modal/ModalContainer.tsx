@@ -4,6 +4,7 @@ import { ReactElement, useEffect } from "react";
 import CreateCallModal from "./CreateCall.modal";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 import Share from "./Share";
+import Join from "./Join";
 
 function Modal(): ReactElement {
   useEffect(() => {
@@ -22,7 +23,7 @@ function Modal(): ReactElement {
       className="modal fade show d-block"
       style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
     >
-      <div className="modal-dialog modal-dialog-centered w-100">
+      <div className="modal-dialog modal-dialog-centered">
         <div className="modal-content p-3 w-100">
           <div className="d-flex justify-content-between align-items-start mb-3">
             <h5 className="fw-bold">{modalState.title}</h5>
@@ -34,6 +35,7 @@ function Modal(): ReactElement {
             </button>
           </div>
           {modalState.content === "share_and_join" && <CreateCallModal />}
+          {modalState.content === "join_room" && <Join />}
           {modalState.content === "share" && <Share />}
         </div>
       </div>
